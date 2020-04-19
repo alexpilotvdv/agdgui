@@ -2,18 +2,36 @@
 import pygame
 import random
 import serial
+import re
 
-#ser = serial.Serial("COM4", 115200)
-#while not connected:
-#    serin = ser.read()
-#    print('serin= ' + str(serin))
-#    connected = True
-#    #пример работы с портом
-#for i in range(300):
-#    pt=ser.read()
-#    print('port= ' + str(pt))
 
-#ser.close()
+ser = serial.Serial("COM5", 115200)
+
+    #пример работы с портом
+def getxy():
+    rtx = ''
+    rty = ''
+    pt=str(ser.readline())
+    match = re.search('[x]\d{1,3}', pt)
+    if match:
+        rtx=match[0]
+        rtx = rtx[1:]
+        #если меньше 0
+    match = re.search('[x][-]\d{1,3}', pt)
+    if match:
+        rtx=match[0]
+        rtx = rtx[1:]
+    match = re.search('[y]\d{1,3}', pt)
+    if match:
+        rty=match[0]
+        rty = rty[1:]
+    match = re.search('[y][-]\d{1,3}', pt)
+    if match:
+        rty=match[0]
+        rty = rty[1:]
+    return rtx, rty
+
+
 
 WIDTH = 800  # ширина игрового окна
 HEIGHT = 600 # высота игрового окна
@@ -24,10 +42,28 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+
+class Ground(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load("ground.png").convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.center = (WIDTH / 2, HEIGHT / 2)
+        self.korr = (HEIGHT / 2)/90
+    def update(self,y):
+        new_image=self.image
+        new_rect=self.image.get_rect()
+        new_rect.y = self.rect.y + y
+        new_rect.center = (WIDTH / 2, (HEIGHT / 2) + y*self.korr)
+        screen.blit(new_image, new_rect)
+        #if self.rect.left > WIDTH:
+        #    self.rect.right = 0
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load("line.png").convert_alpha()
+        self.image = pygame.image.load("agd.png").convert_alpha()
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH / 2, HEIGHT / 2)
 
@@ -65,11 +101,14 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("AGD")
 clock = pygame.time.Clock()
 all_sprites = pygame.sprite.Group()
+ground = Ground()
 player = Player()
+all_sprites.add(ground)
 all_sprites.add(player)
 
 # Цикл игры
 ugol=0
+horiz=0
 running = True
 while running:
     # держим цикл на правильной скорости
@@ -80,19 +119,29 @@ while running:
     for event in pygame.event.get():
         # проверить закрытие окна
         if event.type == pygame.QUIT:
+            ser.close()
             running = False
 
      # Обновление
-    ugol+=1
-    if ugol==360:
-        ugol=0
+
 
 
     # Рендеринг
+    screen.blit(ground.image, ground.rect)
     #
     #all_sprites.draw(screen)
-    screen.fill(BLACK)
+    #screen.fill(BLUE)
+	#Получим данные из com порта
+    xr,yr = getxy()
+    if yr != '':
+        horiz = int(yr)
+    if xr != '':
+        ugol = int(xr)
+        print('y = ' + str(horiz))
+    ground.update(horiz)
+
     player.rot_center(ugol)
+
     #all_sprites.update()
     # После отрисовки всего, переворачиваем экран
     pygame.display.flip()
